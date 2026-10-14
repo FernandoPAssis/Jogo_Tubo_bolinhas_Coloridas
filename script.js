@@ -18,7 +18,7 @@ window.addEventListener('resize', checkOrientation);
 window.addEventListener('load', () => {
     checkOrientation();
     initGame(1);
-    setupControls();
+    setupDragAndDrop();
 });
 
 const COLOR_PALETTE = [
@@ -39,7 +39,6 @@ let draggedColor = null;
 let sameColorChainCount = 0;
 let currentHoveredColIdx = null;
 let isAnimatingMove = false;
-let selectedColIdx = null; // Para toque simples (Tap-to-move)
 
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 let audioCtx = null;
@@ -134,7 +133,6 @@ function initGame(level = 1) {
     isDragging = false;
     isAnimatingMove = false;
     dragSourceColIdx = null;
-    selectedColIdx = null;
     draggedColor = null;
     sameColorChainCount = 0;
     currentHoveredColIdx = null;
@@ -179,11 +177,15 @@ function initGame(level = 1) {
 }
 
 function nextLevel() {
-    if (currentLevel < 10) initGame(currentLevel + 1);
+    if (currentLevel < 10) {
+        initGame(currentLevel + 1);
+    }
 }
 
 function prevLevel() {
-    if (currentLevel > 1) initGame(currentLevel - 1);
+    if (currentLevel > 1) {
+        initGame(currentLevel - 1);
+    }
 }
 
 function renderBoard() {
@@ -192,11 +194,7 @@ function renderBoard() {
 
     columns.forEach((col, colIdx) => {
         const track = document.createElement('div');
-        let classes = 'column-track';
-        if (currentHoveredColIdx === colIdx) classes += ' hovered';
-        if (selectedColIdx === colIdx) classes += ' selected';
-
-        track.className = classes;
+        track.className = `column-track ${currentHoveredColIdx === colIdx ? 'hovered' : ''}`;
         track.dataset.colIdx = colIdx;
 
         for (let i = 0; i < MAX_SLOTS; i++) {
@@ -206,7 +204,7 @@ function renderBoard() {
             const color = col[i];
             if (color) {
                 const ball = document.createElement('div');
-                ball.className = 'ball';
+                ball.className = 'ball draggable';
                 ball.style.backgroundColor = color;
 
                 if (isDragging && colIdx === dragSourceColIdx && i === col.length - 1) {
@@ -222,11 +220,11 @@ function renderBoard() {
     });
 }
 
-function setupControls() {
+function setupDragAndDrop() {
     const ghostChain = document.getElementById('ghostChain');
 
     function handleStart(e) {
-        if (isAnimatingMove) return;
+        if (isDragging || isAnimatingMove) return;
 
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -238,29 +236,12 @@ function setupControls() {
         if (!track) return;
 
         const colIdx = parseInt(track.dataset.colIdx);
-
-        // Se já tínhamos selecionado um tubo por toque simples
-        if (selectedColIdx !== null) {
-            if (selectedColIdx !== colIdx) {
-                const fromIdx = selectedColIdx;
-                selectedColIdx = null;
-                renderBoard();
-                executeMoveWithTrajectoryAnimation(fromIdx, colIdx);
-                return;
-            } else {
-                // Toque no mesmo tubo desmarca a seleção
-                selectedColIdx = null;
-                renderBoard();
-                return;
-            }
-        }
-
         const col = columns[colIdx];
+
         if (!col || col.length === 0) return;
 
-        if (e.cancelable) e.preventDefault();
-
         draggedColor = col[col.length - 1];
+
         sameColorChainCount = 0;
         for (let i = col.length - 1; i >= 0; i--) {
             if (col[i] === draggedColor) sameColorChainCount++;
@@ -281,6 +262,8 @@ function setupControls() {
 
         playTone(440, 0.08, 'sine');
         renderBoard();
+
+        if (e.cancelable) e.preventDefault();
     }
 
     function handleMove(e) {
@@ -313,23 +296,20 @@ function setupControls() {
 
         ghostChain.classList.add('hidden');
 
-        // Se foi um toque rápido sem arrastar, seleciona o tubo para movimentação por toques
-        if (currentHoveredColIdx === null || currentHoveredColIdx === dragSourceColIdx) {
-            selectedColIdx = dragSourceColIdx;
-            playTone(350, 0.08, 'sine');
-        } else {
+        if (currentHoveredColIdx !== null && currentHoveredColIdx !== dragSourceColIdx) {
             executeMoveWithTrajectoryAnimation(dragSourceColIdx, currentHoveredColIdx);
+        } else {
+            playTone(250, 0.08, 'sine');
+            isDragging = false;
+            dragSourceColIdx = null;
+            currentHoveredColIdx = null;
+            renderBoard();
         }
-
-        isDragging = false;
-        dragSourceColIdx = null;
-        currentHoveredColIdx = null;
-        renderBoard();
     }
 
     function updateGhostPosition(x, y) {
         ghostChain.style.left = `${x}px`;
-        ghostChain.style.top = `${y - 10}px`;
+        ghostChain.style.top = `${y - 25}px`;
     }
 
     window.addEventListener('mousedown', handleStart);
@@ -338,38 +318,26 @@ function setupControls() {
 
     window.addEventListener('touchstart', handleStart, { passive: false });
     window.addEventListener('touchmove', handleMove, { passive: false });
-    window.addEventListener('touchend', handleEnd, { passive: false });
+    window.addEventListener('touchend', handleEnd);
 }
 
 async function executeMoveWithTrajectoryAnimation(fromIdx, toIdx) {
     const sourceCol = columns[fromIdx];
     const destCol = columns[toIdx];
 
-    if (!sourceCol || sourceCol.length === 0) return;
-
-    // Verificar se a cor combina ou se o tubo de destino está totalmente vazio
-    if (destCol.length > 0 && destCol[destCol.length - 1] !== sourceCol[sourceCol.length - 1]) {
-        playTone(180, 0.15, 'sawtooth');
-        renderBoard();
-        return;
-    }
+    if (sourceCol.length === 0) return;
 
     const availableSpace = MAX_SLOTS - destCol.length;
     if (availableSpace <= 0) {
         playTone(180, 0.15, 'sawtooth');
+        isDragging = false;
+        dragSourceColIdx = null;
+        currentHoveredColIdx = null;
         renderBoard();
         return;
     }
 
-    // Contar quantas da mesma cor existem no topo
-    const colorToMatch = sourceCol[sourceCol.length - 1];
-    let chainCount = 0;
-    for (let i = sourceCol.length - 1; i >= 0; i--) {
-        if (sourceCol[i] === colorToMatch) chainCount++;
-        else break;
-    }
-
-    const moveCount = Math.min(chainCount, availableSpace);
+    const moveCount = Math.min(sameColorChainCount, availableSpace);
 
     isDragging = false;
     isAnimatingMove = true;
@@ -397,14 +365,14 @@ async function executeMoveWithTrajectoryAnimation(fromIdx, toIdx) {
         flyingBall.className = 'flying-ball';
         flyingBall.style.backgroundColor = colorToMove;
 
-        const startX = sourceRect.left + (sourceRect.width / 2) - 14;
-        const startY = sourceRect.top + (sourceRect.height / 2) - 14;
+        const startX = sourceRect.left + (sourceRect.width / 2) - 15;
+        const startY = sourceRect.top + (sourceRect.height / 2) - 15;
 
         const boardRect = boardEl.getBoundingClientRect();
-        const apexY = boardRect.top - 35;
+        const apexY = boardRect.top - 40;
 
-        const endX = targetRect.left + (targetRect.width / 2) - 14;
-        const endY = targetRect.top + (targetRect.height / 2) - 14;
+        const endX = targetRect.left + (targetRect.width / 2) - 15;
+        const endY = targetRect.top + (targetRect.height / 2) - 15;
 
         flyingBall.style.left = `${startX}px`;
         flyingBall.style.top = `${startY}px`;
@@ -414,15 +382,15 @@ async function executeMoveWithTrajectoryAnimation(fromIdx, toIdx) {
 
         flyingBall.style.left = `${startX}px`;
         flyingBall.style.top = `${apexY}px`;
-        await sleep(90);
+        await sleep(100);
 
         flyingBall.style.left = `${endX}px`;
         flyingBall.style.top = `${apexY}px`;
-        await sleep(110);
+        await sleep(120);
 
         flyingBall.style.left = `${endX}px`;
         flyingBall.style.top = `${endY}px`;
-        await sleep(90);
+        await sleep(100);
 
         flyingBall.remove();
 
