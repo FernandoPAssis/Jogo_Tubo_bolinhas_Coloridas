@@ -1,4 +1,3 @@
-
 function lockOrientation() {
     if (screen.orientation && screen.orientation.lock) {
         screen.orientation.lock('landscape').catch(() => { });
@@ -19,7 +18,7 @@ window.addEventListener('resize', checkOrientation);
 window.addEventListener('load', () => {
     checkOrientation();
     initGame(1);
-    setupDragAndDrop();
+    setupControls();
 });
 
 const COLOR_PALETTE = [
@@ -40,6 +39,7 @@ let draggedColor = null;
 let sameColorChainCount = 0;
 let currentHoveredColIdx = null;
 let isAnimatingMove = false;
+let selectedColIdx = null; // Para toque simples (Tap-to-move)
 
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 let audioCtx = null;
@@ -134,6 +134,7 @@ function initGame(level = 1) {
     isDragging = false;
     isAnimatingMove = false;
     dragSourceColIdx = null;
+    selectedColIdx = null;
     draggedColor = null;
     sameColorChainCount = 0;
     currentHoveredColIdx = null;
@@ -178,15 +179,11 @@ function initGame(level = 1) {
 }
 
 function nextLevel() {
-    if (currentLevel < 10) {
-        initGame(currentLevel + 1);
-    }
+    if (currentLevel < 10) initGame(currentLevel + 1);
 }
 
 function prevLevel() {
-    if (currentLevel > 1) {
-        initGame(currentLevel - 1);
-    }
+    if (currentLevel > 1) initGame(currentLevel - 1);
 }
 
 function renderBoard() {
@@ -195,7 +192,11 @@ function renderBoard() {
 
     columns.forEach((col, colIdx) => {
         const track = document.createElement('div');
-        track.className = `column-track ${currentHoveredColIdx === colIdx ? 'hovered' : ''}`;
+        let classes = 'column-track';
+        if (currentHoveredColIdx === colIdx) classes += ' hovered';
+        if (selectedColIdx === colIdx) classes += ' selected';
+
+        track.className = classes;
         track.dataset.colIdx = colIdx;
 
         for (let i = 0; i < MAX_SLOTS; i++) {
@@ -221,11 +222,11 @@ function renderBoard() {
     });
 }
 
-function setupDragAndDrop() {
+function setupControls() {
     const ghostChain = document.getElementById('ghostChain');
 
     function handleStart(e) {
-        if (isDragging || isAnimatingMove) return;
+        if (isAnimatingMove) return;
 
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -237,12 +238,29 @@ function setupDragAndDrop() {
         if (!track) return;
 
         const colIdx = parseInt(track.dataset.colIdx);
-        const col = columns[colIdx];
 
+        // Se já tínhamos selecionado um tubo por toque simples
+        if (selectedColIdx !== null) {
+            if (selectedColIdx !== colIdx) {
+                const fromIdx = selectedColIdx;
+                selectedColIdx = null;
+                renderBoard();
+                executeMoveWithTrajectoryAnimation(fromIdx, colIdx);
+                return;
+            } else {
+                // Toque no mesmo tubo desmarca a seleção
+                selectedColIdx = null;
+                renderBoard();
+                return;
+            }
+        }
+
+        const col = columns[colIdx];
         if (!col || col.length === 0) return;
 
-        draggedColor = col[col.length - 1];
+        if (e.cancelable) e.preventDefault();
 
+        draggedColor = col[col.length - 1];
         sameColorChainCount = 0;
         for (let i = col.length - 1; i >= 0; i--) {
             if (col[i] === draggedColor) sameColorChainCount++;
@@ -295,15 +313,18 @@ function setupDragAndDrop() {
 
         ghostChain.classList.add('hidden');
 
-        if (currentHoveredColIdx !== null && currentHoveredColIdx !== dragSourceColIdx) {
-            executeMoveWithTrajectoryAnimation(dragSourceColIdx, currentHoveredColIdx);
+        // Se foi um toque rápido sem arrastar, seleciona o tubo para movimentação por toques
+        if (currentHoveredColIdx === null || currentHoveredColIdx === dragSourceColIdx) {
+            selectedColIdx = dragSourceColIdx;
+            playTone(350, 0.08, 'sine');
         } else {
-            playTone(250, 0.08, 'sine');
-            isDragging = false;
-            dragSourceColIdx = null;
-            currentHoveredColIdx = null;
-            renderBoard();
+            executeMoveWithTrajectoryAnimation(dragSourceColIdx, currentHoveredColIdx);
         }
+
+        isDragging = false;
+        dragSourceColIdx = null;
+        currentHoveredColIdx = null;
+        renderBoard();
     }
 
     function updateGhostPosition(x, y) {
@@ -317,26 +338,38 @@ function setupDragAndDrop() {
 
     window.addEventListener('touchstart', handleStart, { passive: false });
     window.addEventListener('touchmove', handleMove, { passive: false });
-    window.addEventListener('touchend', handleEnd);
+    window.addEventListener('touchend', handleEnd, { passive: false });
 }
 
 async function executeMoveWithTrajectoryAnimation(fromIdx, toIdx) {
     const sourceCol = columns[fromIdx];
     const destCol = columns[toIdx];
 
-    if (sourceCol.length === 0) return;
+    if (!sourceCol || sourceCol.length === 0) return;
 
-    const availableSpace = MAX_SLOTS - destCol.length;
-    if (availableSpace <= 0) {
+    // Verificar se a cor combina ou se o tubo de destino está totalmente vazio
+    if (destCol.length > 0 && destCol[destCol.length - 1] !== sourceCol[sourceCol.length - 1]) {
         playTone(180, 0.15, 'sawtooth');
-        isDragging = false;
-        dragSourceColIdx = null;
-        currentHoveredColIdx = null;
         renderBoard();
         return;
     }
 
-    const moveCount = Math.min(sameColorChainCount, availableSpace);
+    const availableSpace = MAX_SLOTS - destCol.length;
+    if (availableSpace <= 0) {
+        playTone(180, 0.15, 'sawtooth');
+        renderBoard();
+        return;
+    }
+
+    // Contar quantas da mesma cor existem no topo
+    const colorToMatch = sourceCol[sourceCol.length - 1];
+    let chainCount = 0;
+    for (let i = sourceCol.length - 1; i >= 0; i--) {
+        if (sourceCol[i] === colorToMatch) chainCount++;
+        else break;
+    }
+
+    const moveCount = Math.min(chainCount, availableSpace);
 
     isDragging = false;
     isAnimatingMove = true;
@@ -364,14 +397,14 @@ async function executeMoveWithTrajectoryAnimation(fromIdx, toIdx) {
         flyingBall.className = 'flying-ball';
         flyingBall.style.backgroundColor = colorToMove;
 
-        const startX = sourceRect.left + (sourceRect.width / 2) - 15;
-        const startY = sourceRect.top + (sourceRect.height / 2) - 15;
+        const startX = sourceRect.left + (sourceRect.width / 2) - 14;
+        const startY = sourceRect.top + (sourceRect.height / 2) - 14;
 
         const boardRect = boardEl.getBoundingClientRect();
-        const apexY = boardRect.top - 40;
+        const apexY = boardRect.top - 35;
 
-        const endX = targetRect.left + (targetRect.width / 2) - 15;
-        const endY = targetRect.top + (targetRect.height / 2) - 15;
+        const endX = targetRect.left + (targetRect.width / 2) - 14;
+        const endY = targetRect.top + (targetRect.height / 2) - 14;
 
         flyingBall.style.left = `${startX}px`;
         flyingBall.style.top = `${startY}px`;
@@ -381,15 +414,15 @@ async function executeMoveWithTrajectoryAnimation(fromIdx, toIdx) {
 
         flyingBall.style.left = `${startX}px`;
         flyingBall.style.top = `${apexY}px`;
-        await sleep(100);
+        await sleep(90);
 
         flyingBall.style.left = `${endX}px`;
         flyingBall.style.top = `${apexY}px`;
-        await sleep(120);
+        await sleep(110);
 
         flyingBall.style.left = `${endX}px`;
         flyingBall.style.top = `${endY}px`;
-        await sleep(100);
+        await sleep(90);
 
         flyingBall.remove();
 

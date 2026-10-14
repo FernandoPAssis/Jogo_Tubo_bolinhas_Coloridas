@@ -1,16 +1,17 @@
 * {
     user-select: none;
     -webkit-user-select: none;
-    touch-action: manipulation;
+    touch-action: none; /* Desativa gestos do navegador no jogo */
     box-sizing: border-box;
 }
 
 body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     background: linear-gradient(135deg, #0f172a, #1e1b4b, #312e81);
-    min-height: 100vh;
+    height: 100dvh; /* Altura dinâmica para ecrãs de telemóvel */
+    width: 100vw;
     margin: 0;
-    padding: 8px;
+    padding: 4px 12px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -18,7 +19,7 @@ body {
     overflow: hidden;
 }
 
-/* Aviso para Modo Horizontal */
+/* Aviso de Orientação */
 #orientation-warning {
     position: fixed;
     inset: 0;
@@ -38,9 +39,9 @@ body {
     }
 
 .rotate-icon {
-    font-size: 3.5rem;
+    font-size: 3rem;
     animation: rotatePhone 1.5s infinite ease-in-out;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
 }
 
 @keyframes rotatePhone {
@@ -55,57 +56,63 @@ body {
 
 #board {
     width: 100%;
-    max-width: 700px;
+    max-width: 650px;
     display: flex;
     justify-content: center;
     align-items: center;
     gap: clamp(4px, 1.2vw, 8px);
-    padding: 10px 6px;
+    padding: 8px 6px;
     background: rgba(15, 23, 42, 0.65);
     backdrop-filter: blur(12px);
-    border-radius: 1.5rem;
+    border-radius: 1.25rem;
     border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
 .column-track {
     background: rgba(255, 255, 255, 0.05);
     border: 2px solid rgba(255, 255, 255, 0.15);
-    border-radius: 1rem;
+    border-radius: 0.85rem;
     display: flex;
     flex-direction: column-reverse;
     align-items: center;
     padding: 4px 2px;
-    gap: 3px;
+    gap: 2px;
     position: relative;
     transition: all 0.2s ease;
     flex: 1;
-    max-width: 48px;
-    min-height: 190px;
+    max-width: 46px;
+    min-height: 160px;
+    cursor: pointer;
 }
+
+    .column-track.selected {
+        border-color: #facc15;
+        background: rgba(250, 204, 21, 0.2);
+        box-shadow: 0 0 12px rgba(250, 204, 21, 0.5);
+        transform: translateY(-4px);
+    }
 
     .column-track.hovered {
         border-color: #38bdf8;
         background: rgba(56, 189, 248, 0.2);
         box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
-        transform: translateY(-2px);
     }
 
 .slot {
-    width: clamp(24px, 7vw, 34px);
-    height: clamp(24px, 7vw, 34px);
+    width: clamp(22px, 6vw, 32px);
+    height: clamp(22px, 6vw, 32px);
     border-radius: 50%;
-    border: 2px dashed rgba(255, 255, 255, 0.1);
+    border: 1.5px dashed rgba(255, 255, 255, 0.12);
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
 .ball {
-    width: clamp(22px, 6.5vw, 30px);
-    height: clamp(22px, 6.5vw, 30px);
+    width: clamp(20px, 5.5vw, 28px);
+    height: clamp(20px, 5.5vw, 28px);
     border-radius: 50%;
-    cursor: grab;
     position: relative;
     box-shadow: inset -2px -2px 4px rgba(0, 0, 0, 0.4), inset 2px 2px 4px rgba(255, 255, 255, 0.4), 0 2px 5px rgba(0, 0, 0, 0.3);
     transition: transform 0.15s ease, opacity 0.15s ease;
@@ -123,8 +130,8 @@ body {
 }
 
 .ghost-ball {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     box-shadow: inset -2px -2px 4px rgba(0, 0, 0, 0.4), inset 2px 2px 4px rgba(255, 255, 255, 0.4), 0 2px 5px rgba(0,0,0,0.3);
     animation: pulseGhost 0.8s infinite alternate ease-in-out;
@@ -132,13 +139,13 @@ body {
 
 .flying-ball {
     position: fixed;
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     z-index: 99999;
     pointer-events: none;
     box-shadow: inset -2px -2px 4px rgba(0, 0, 0, 0.4), inset 2px 2px 4px rgba(255, 255, 255, 0.4), 0 5px 10px rgba(0, 0, 0, 0.5);
-    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), left 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), top 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), left 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), top 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @keyframes pulseGhost {
@@ -191,7 +198,7 @@ body {
     }
 
 .victory-title {
-    font-size: 2.2rem;
+    font-size: 2rem;
     font-weight: 900;
     color: #facc15;
     text-shadow: 0 0 20px #f59e0b, 0 4px 10px rgba(0,0,0,0.8);
@@ -214,8 +221,8 @@ body {
 .balloon {
     position: absolute;
     bottom: -100px;
-    width: 40px;
-    height: 55px;
+    width: 38px;
+    height: 50px;
     border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
     animation: floatUp 4s linear forwards;
     z-index: 101;
@@ -225,7 +232,7 @@ body {
         content: "";
         position: absolute;
         bottom: -10px;
-        left: 18px;
+        left: 17px;
         width: 2px;
         height: 12px;
         background: rgba(255,255,255,0.7);
@@ -242,7 +249,6 @@ body {
         opacity: 0.8;
     }
 }
-
 
 
 /*CSS VOLTAR AO PORTAL INICIO*/
