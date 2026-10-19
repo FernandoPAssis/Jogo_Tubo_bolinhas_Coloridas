@@ -66,6 +66,7 @@ body {
     border-radius: 1.5rem;
     border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+    touch-action: none; /* evita que o navegador trate o arraste como gesto de rolagem/zoom */
 }
 
 .column-track {
