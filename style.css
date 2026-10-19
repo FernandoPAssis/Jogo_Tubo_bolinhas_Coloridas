@@ -9,6 +9,7 @@ body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     background: linear-gradient(135deg, #0f172a, #1e1b4b, #312e81);
     min-height: 100vh;
+    min-height: var(--app-height, 100vh); /* altura real medida via JS (desconta a barra do navegador) */
     margin: 0;
     padding: 8px;
     display: flex;
@@ -21,7 +22,10 @@ body {
 /* Aviso para Modo Horizontal */
 #orientation-warning {
     position: fixed;
-    inset: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
     background: #0f172a;
     z-index: 999999;
     display: none;
@@ -59,9 +63,9 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: clamp(4px, 1.2vw, 8px);
     padding: 10px 6px;
     background: rgba(15, 23, 42, 0.65);
+    -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
     border-radius: 1.5rem;
     border: 1px solid rgba(255, 255, 255, 0.12);
@@ -77,7 +81,8 @@ body {
     flex-direction: column-reverse;
     align-items: center;
     padding: 4px 2px;
-    gap: 3px;
+    margin: 0 2px; /* margem no lugar de gap (gap em flexbox não funciona em navegadores antigos) */
+    margin: 0 clamp(2px, 0.6vw, 4px);
     position: relative;
     transition: all 0.2s ease;
     flex: 1;
@@ -93,6 +98,8 @@ body {
     }
 
 .slot {
+    width: 30px; /* valor reserva para navegadores sem clamp() */
+    height: 30px;
     width: clamp(24px, 7vw, 34px);
     height: clamp(24px, 7vw, 34px);
     border-radius: 50%;
@@ -102,7 +109,14 @@ body {
     justify-content: center;
 }
 
+    /* column-reverse: o slot seguinte fica acima, então o espaço vai na margem de baixo */
+    .slot + .slot {
+        margin-bottom: 3px;
+    }
+
 .ball {
+    width: 26px; /* valor reserva para navegadores sem clamp() */
+    height: 26px;
     width: clamp(22px, 6.5vw, 30px);
     height: clamp(22px, 6.5vw, 30px);
     border-radius: 50%;
@@ -174,7 +188,10 @@ body {
 
 #victory-screen {
     position: fixed;
-    inset: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
     background: rgba(0, 0, 0, 0.85);
     display: flex;
     flex-direction: column;
@@ -190,6 +207,11 @@ body {
         opacity: 1;
         pointer-events: auto;
     }
+
+/* Espaço entre os botões da vitória (no lugar de gap) */
+.victory-actions > * + * {
+    margin-top: 8px;
+}
 
 .victory-title {
     font-size: 2.2rem;
@@ -268,7 +290,6 @@ body {
 .btn-voltar-portal {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
     padding: 10px 20px;
     background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
     color: #ffffff;
@@ -287,6 +308,7 @@ body {
     /* Ícone */
     .btn-voltar-portal .btn-icon {
         font-size: 18px;
+        margin-right: 8px; /* no lugar de gap */
         transition: transform 0.25s ease;
     }
 
@@ -321,3 +343,140 @@ body {
 }
 
 /*CSS VOLTAR AO PORTAL FIM*/
+
+
+
+/*CSS CELULAR NA HORIZONTAL INICIO*/
+/* Mesma consulta usada em LANDSCAPE_MOBILE_QUERY no script.js */
+@media (orientation: landscape) and (max-height: 500px) {
+    /* Barra de controles compacta no topo e tabuleiro ocupando o resto da altura */
+    body {
+        height: 100vh;
+        height: var(--app-height, 100vh);
+        min-height: 0;
+        padding: 6px 8px;
+        display: grid;
+        grid-template-columns: auto auto 1fr auto auto;
+        grid-template-rows: auto 1fr;
+        grid-template-areas:
+            "portal header score moves footer"
+            "main   main   main  main  main";
+        grid-column-gap: 6px;
+        grid-row-gap: 4px;
+    }
+
+    .portal-nav-container {
+        grid-area: portal;
+        width: auto;
+        margin-bottom: 0;
+    }
+
+    .btn-voltar-portal {
+        padding: 4px 8px;
+    }
+
+        .btn-voltar-portal .btn-icon {
+            font-size: 16px;
+            margin-right: 0;
+        }
+
+        .btn-voltar-portal .btn-text {
+            display: none;
+        }
+
+    #gameHeader {
+        grid-area: header;
+        width: auto;
+        max-width: none;
+        padding: 0;
+        white-space: nowrap;
+    }
+
+        #gameHeader > div {
+            margin-right: 6px;
+        }
+
+        #gameHeader p {
+            display: none;
+        }
+
+    #scoreBar {
+        grid-area: score;
+        width: auto;
+        max-width: none;
+        min-width: 0;
+        margin: 0;
+        padding: 3px 8px;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    #movesBar {
+        grid-area: moves;
+        width: auto;
+        max-width: none;
+        margin: 0;
+        padding: 0 2px;
+        white-space: nowrap;
+    }
+
+    #gameFooter {
+        grid-area: footer;
+        width: auto;
+        max-width: none;
+        padding: 0;
+        white-space: nowrap;
+    }
+
+    #gameMain {
+        grid-area: main;
+        align-self: stretch;
+        justify-self: stretch;
+        margin: 0;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    /* Tamanho das bolinhas calculado no fitBoard() conforme altura, largura e nº de tubos */
+    #board {
+        width: auto;
+        max-width: 100%;
+        padding: 6px;
+    }
+
+    .column-track {
+        flex: 0 0 auto;
+        max-width: none;
+        min-height: 0;
+        margin: 0 3px;
+    }
+
+    .slot {
+        width: 34px;
+        height: 34px;
+        width: var(--slot-size, 34px);
+        height: var(--slot-size, 34px);
+    }
+
+    .ball {
+        width: 30px;
+        height: 30px;
+        width: calc(var(--slot-size, 34px) - 4px);
+        height: calc(var(--slot-size, 34px) - 4px);
+    }
+}
+
+/* Telas horizontais mais estreitas: esconde o título */
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 780px) {
+    #gameHeader > div {
+        display: none;
+    }
+}
+
+/* Telas horizontais bem estreitas (ex.: iPhone SE): botões só com a seta */
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 620px) {
+    .btn-label {
+        display: none;
+    }
+}
+/*CSS CELULAR NA HORIZONTAL FIM*/
