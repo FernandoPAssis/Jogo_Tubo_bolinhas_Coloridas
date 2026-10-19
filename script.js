@@ -220,6 +220,21 @@ function renderBoard() {
     });
 }
 
+// Atualiza destaque/opacidade sem recriar o DOM (recriar quebra o touch no celular,
+// pois touchmove/touchend continuam indo para o elemento original removido)
+function updateDragVisuals() {
+    const tracks = document.getElementById('board').children;
+    for (let colIdx = 0; colIdx < tracks.length; colIdx++) {
+        const track = tracks[colIdx];
+        const col = columns[colIdx];
+        track.classList.toggle('hovered', currentHoveredColIdx === colIdx);
+        track.querySelectorAll('.ball').forEach((ball, i) => {
+            const isSourceTop = isDragging && colIdx === dragSourceColIdx && i === col.length - 1;
+            ball.style.opacity = isSourceTop ? '0.0' : '';
+        });
+    }
+}
+
 function setupDragAndDrop() {
     const ghostChain = document.getElementById('ghostChain');
 
@@ -261,7 +276,7 @@ function setupDragAndDrop() {
         updateGhostPosition(clientX, clientY);
 
         playTone(440, 0.08, 'sine');
-        renderBoard();
+        updateDragVisuals();
 
         if (e.cancelable) e.preventDefault();
     }
@@ -282,17 +297,20 @@ function setupDragAndDrop() {
                 const hoveredIdx = parseInt(track.dataset.colIdx);
                 if (currentHoveredColIdx !== hoveredIdx) {
                     currentHoveredColIdx = hoveredIdx;
-                    renderBoard();
+                    updateDragVisuals();
                 }
             } else if (currentHoveredColIdx !== null) {
                 currentHoveredColIdx = null;
-                renderBoard();
+                updateDragVisuals();
             }
         }
     }
 
     function handleEnd(e) {
         if (!isDragging) return;
+
+        // Toque cancelado pelo sistema: não executa a jogada
+        if (e.type === 'touchcancel') currentHoveredColIdx = null;
 
         ghostChain.classList.add('hidden');
 
@@ -319,6 +337,7 @@ function setupDragAndDrop() {
     window.addEventListener('touchstart', handleStart, { passive: false });
     window.addEventListener('touchmove', handleMove, { passive: false });
     window.addEventListener('touchend', handleEnd);
+    window.addEventListener('touchcancel', handleEnd);
 }
 
 async function executeMoveWithTrajectoryAnimation(fromIdx, toIdx) {
