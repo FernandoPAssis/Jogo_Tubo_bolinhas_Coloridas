@@ -14,7 +14,57 @@ function checkOrientation() {
     }
 }
 
+// Mesma consulta do bloco "CELULAR NA HORIZONTAL" no style.css
+const LANDSCAPE_MOBILE_QUERY = '(orientation: landscape) and (max-height: 500px)';
+
+// Espaços fixos do layout horizontal (precisam bater com o style.css)
+const BOARD_EXTRA = 14;           // padding 6px + borda 1px, dos dois lados
+const COLUMN_EXTRA_W = 8;         // padding 2px + borda 2px, dos dois lados
+const COLUMN_EXTRA_H = 12;        // padding 4px + borda 2px, em cima e embaixo
+const COLUMN_MARGIN_W = 6;        // margem 3px de cada lado
+const SLOT_SPACING = 3;           // margem entre os slots
+const STATUS_EXTRA = 20;          // #statusMessage (h-4 + mt-1)
+
+// Mede a altura real da tela (sem a barra do navegador) e ajusta o tamanho das
+// bolinhas para o tabuleiro caber inteiro no celular na horizontal
+function fitBoard() {
+    const root = document.documentElement;
+    root.style.setProperty('--app-height', `${window.innerHeight}px`);
+
+    if (!window.matchMedia || !window.matchMedia(LANDSCAPE_MOBILE_QUERY).matches) return;
+
+    const main = document.getElementById('gameMain');
+    const cols = columns.length || 1;
+
+    const byHeight = (main.clientHeight - STATUS_EXTRA - BOARD_EXTRA - COLUMN_EXTRA_H - SLOT_SPACING * (MAX_SLOTS - 1)) / MAX_SLOTS;
+    const byWidth = (main.clientWidth - BOARD_EXTRA - COLUMN_MARGIN_W * cols) / cols - COLUMN_EXTRA_W;
+    const size = Math.floor(Math.max(18, Math.min(44, byHeight, byWidth)));
+
+    root.style.setProperty('--slot-size', `${size}px`);
+}
+
+// Tela cheia no primeiro toque (só onde o navegador permitir; no iPhone não existe)
+function requestFullscreenOnce() {
+    window.removeEventListener('touchend', requestFullscreenOnce);
+
+    // Só em telas de celular (evita tela cheia em notebooks com touch)
+    const isPhoneSize = window.innerWidth < 768 || window.innerHeight <= 500;
+    if (!isPhoneSize) return;
+
+    const el = document.documentElement;
+    const request = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!request || document.fullscreenElement || document.webkitFullscreenElement) return;
+
+    try {
+        const result = request.call(el);
+        if (result && result.then) result.then(lockOrientation).catch(() => { });
+    } catch (e) { }
+}
+
 window.addEventListener('resize', checkOrientation);
+window.addEventListener('resize', fitBoard);
+window.addEventListener('orientationchange', () => setTimeout(fitBoard, 300));
+window.addEventListener('touchend', requestFullscreenOnce);
 window.addEventListener('load', () => {
     checkOrientation();
     initGame(1);
@@ -174,6 +224,7 @@ function initGame(level = 1) {
     }
 
     renderBoard();
+    fitBoard();
 }
 
 function nextLevel() {
